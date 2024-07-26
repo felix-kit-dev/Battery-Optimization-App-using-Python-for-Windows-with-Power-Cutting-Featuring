@@ -6,9 +6,10 @@ Here's a simplified example using Python with tkinter for the GUI and ctypes for
 Install necessary libraries:
 
 pip install pywin32
+
 Create the main application:
 
-Explanation:
+**Explanation:**
 Battery Status Check:
 
 The get_battery_status method uses the Windows API to get the current battery status.
