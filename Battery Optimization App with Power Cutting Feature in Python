@@ -1,0 +1,88 @@
+import tkinter as tk
+from tkinter import messagebox
+import ctypes
+import win32api
+import win32gui
+import win32con
+import threading
+import time
+
+class BatteryOptimizationApp:
+    def __init__(self, root):
+        self.root = root
+        self.root.title("Battery Optimization App")
+
+        self.is_power_cut = False
+
+        self.battery_label = tk.Label(root, text="Battery Status: Unknown")
+        self.battery_label.pack(pady=10)
+
+        self.cut_power_var = tk.BooleanVar()
+        self.cut_power_check = tk.Checkbutton(root, text="Cut power when fully charged", variable=self.cut_power_var)
+        self.cut_power_check.pack(pady=10)
+
+        self.update_battery_status()
+        self.root.protocol("WM_DELETE_WINDOW", self.on_closing)
+
+    def update_battery_status(self):
+        battery_status = self.get_battery_status()
+        self.battery_label.config(text=f"Battery Status: {battery_status['percent']}% {'Charging' if battery_status['charging'] else 'Not Charging'}")
+
+        if battery_status['percent'] < 20 and not battery_status['charging']:
+            self.show_notification("Battery Low", "Battery is below 20%. Please plug in your charger.")
+
+        if battery_status['percent'] == 100 and self.cut_power_var.get():
+            self.cut_power()
+
+        if battery_status['percent'] == 100 and not self.is_power_cut:
+            self.show_notification("Battery Full", "Battery is fully charged.")
+
+        self.root.after(60000, self.update_battery_status)  # Update every 60 seconds
+
+    def get_battery_status(self):
+        class SYSTEM_POWER_STATUS(ctypes.Structure):
+            _fields_ = [
+                ("ACLineStatus", ctypes.c_byte),
+                ("BatteryFlag", ctypes.c_byte),
+                ("BatteryLifePercent", ctypes.c_byte),
+                ("Reserved1", ctypes.c_byte),
+                ("BatteryLifeTime", ctypes.c_ulong),
+                ("BatteryFullLifeTime", ctypes.c_ulong),
+            ]
+
+        SYSTEM_POWER_STATUS_P = ctypes.POINTER(SYSTEM_POWER_STATUS)
+        GetSystemPowerStatus = ctypes.windll.kernel32.GetSystemPowerStatus
+        GetSystemPowerStatus.restype = ctypes.c_bool
+        GetSystemPowerStatus.argtypes = [SYSTEM_POWER_STATUS_P]
+
+        status = SYSTEM_POWER_STATUS()
+        if not GetSystemPowerStatus(ctypes.pointer(status)):
+            raise ctypes.WinError()
+
+        return {
+            "charging": status.ACLineStatus == 1,
+            "percent": status.BatteryLifePercent,
+            "life_time": status.BatteryLifeTime,
+            "full_life_time": status.BatteryFullLifeTime
+        }
+
+    def show_notification(self, title, message):
+        def notification_thread():
+            win32api.MessageBox(0, message, title, win32con.MB_ICONINFORMATION)
+
+        threading.Thread(target=notification_thread).start()
+
+    def cut_power(self):
+        # Simulate cutting power by disabling the charging
+        self.is_power_cut = True
+        # Actual implementation would depend on hardware and driver capabilities
+        print("Cutting power (simulated)")
+
+    def on_closing(self):
+        self.is_power_cut = False
+        self.root.destroy()
+
+if __name__ == "__main__":
+    root = tk.Tk()
+    app = BatteryOptimizationApp(root)
+    root.mainloop()
